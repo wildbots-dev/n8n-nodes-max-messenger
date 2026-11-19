@@ -1,0 +1,68 @@
+{
+	"name": "n8n-nodes-max-messenger",
+	"version": "0.1.0",
+	"publishConfig": {
+		"access": "public"
+	},
+	"description": "n8n nodes for the MAX messenger Bot API: send messages with buttons and files, manage chats, and trigger workflows on bot updates",
+	"license": "MIT",
+	"homepage": "https://github.com/Aimagine-life/n8n-nodes-max-messenger#readme",
+	"keywords": [
+		"n8n-community-node-package",
+		"n8n",
+		"max",
+		"max messenger",
+		"bot",
+		"chatbot",
+		"messenger"
+	],
+	"author": {
+		"name": "Wildbots",
+		"email": "hello@wildbots.ru",
+		"url": "https://wildbots.ru"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Aimagine-life/n8n-nodes-max-messenger.git"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"test": "vitest run",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/MaxBotApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Max/Max.node.js",
+			"dist/nodes/MaxTrigger/MaxTrigger.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "*",
+		"eslint": "9.39.4",
+		"flatted": "^3.4.4",
+		"n8n-workflow": "*",
+		"prettier": "3.8.3",
+		"release-it": "20.2.0",
+		"typescript": "5.9.3",
+		"vitest": "^3.2.0"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}

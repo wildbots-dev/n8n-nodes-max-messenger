@@ -1,0 +1,14 @@
+{
+	"node": "n8n-nodes-max-messenger.maxTrigger",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Communication"],
+	"resources": {
+		"credentialDocumentation": [
+			{ "url": "https://github.com/Aimagine-life/n8n-nodes-max-messenger#credentials" }
+		],
+		"primaryDocumentation": [
+			{ "url": "https://github.com/Aimagine-life/n8n-nodes-max-messenger#max-trigger" }
+		]
+	}
+}
