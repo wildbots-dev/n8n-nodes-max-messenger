@@ -26,16 +26,16 @@ Create a bot on the [MAX business platform](https://business.max.ru) (*Chat bots
 | Field | Value |
 | --- | --- |
 | Access Token | the bot token |
-| API Domain | `platform-api2.max.ru` (default, required by MAX since July 2026) or the legacy `platform-api.max.ru` |
-| Ignore SSL Issues | leave off unless you cannot install the certificate described below |
+| API Domain | **Automatic** (default): uses `platform-api2.max.ru`, which MAX requires since July 2026, and switches to the legacy `platform-api.max.ru` if your n8n does not trust the certificate of `platform-api2.max.ru`. You can also pick either domain explicitly. |
+| Ignore SSL Issues | leave off; not needed with Automatic |
 
-The credential test calls `GET /me`, so a wrong token is reported right away.
+The credential test calls `GET /me`, so a wrong token is reported right away. With Automatic it runs against `platform-api.max.ru`, which every n8n host trusts.
 
 ### The Russian Trusted Root CA
 
-`platform-api2.max.ru` uses a TLS certificate issued by the Russian Trusted Root CA (Ministry of Digital Development). Most n8n installations do not trust it by default, and the node then reports *"TLS certificate of the MAX API is not trusted"*. Pick one of these:
+`platform-api2.max.ru` uses a TLS certificate issued by the Russian Trusted Root CA (Ministry of Digital Development), which most n8n installations do not trust. With the **Automatic** domain you do not need to do anything: the node then talks to `platform-api.max.ru`, still with full certificate checks. If you select `platform-api2.max.ru` explicitly and n8n does not trust the CA, the node reports *"TLS certificate of the MAX API is not trusted"*. Then pick one of these:
 
-1. **Trust the CA (recommended).** Download `russian_trusted_root_ca.cer` and `russian_trusted_sub_ca.cer` from [gosuslugi.ru/crt](https://www.gosuslugi.ru/crt), join them into one PEM file and point Node.js at it. For Docker:
+1. **Trust the CA.** Download `russian_trusted_root_ca.cer` and `russian_trusted_sub_ca.cer` from [gosuslugi.ru/crt](https://www.gosuslugi.ru/crt), join them into one PEM file and point Node.js at it. For Docker:
 
    ```bash
    mkdir -p certs
@@ -44,7 +44,7 @@ The credential test calls `GET /me`, so a wrong token is reported right away.
    ```
 
    `NODE_EXTRA_CA_CERTS` adds the CA to the ones Node.js already trusts, so other services keep working. Each certificate must end with its own line break, otherwise Node.js ignores the file.
-2. **Use the legacy domain** `platform-api.max.ru`, which still has a globally trusted certificate.
+2. **Switch the credential to Automatic** (or to the legacy domain).
 3. **Enable "Ignore SSL Issues"** in the credential. This turns off certificate checks for MAX requests only; use it as a last resort.
 
 ## MAX node

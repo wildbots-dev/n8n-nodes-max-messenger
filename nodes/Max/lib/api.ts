@@ -14,7 +14,20 @@ import { NodeApiError, sleep } from 'n8n-workflow';
 export type MaxContext = IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions | IWebhookFunctions;
 
 export const CREDENTIAL_NAME = 'maxBotApi';
-export const DEFAULT_BASE_URL = 'https://platform-api2.max.ru';
+export const PRIMARY_BASE_URL = 'https://platform-api2.max.ru';
+export const LEGACY_BASE_URL = 'https://platform-api.max.ru';
+export const AUTO_BASE_URL = 'auto';
+
+/**
+ * Set once platform-api2.max.ru fails TLS verification in this n8n process. Trust in a CA is a
+ * property of the host, so later requests with the Automatic domain go straight to the legacy one.
+ */
+let primaryUntrusted = false;
+
+/** For tests. */
+export function resetDomainFallback(): void {
+	primaryUntrusted = false;
+}
 
 const TLS_ERROR_CODES = new Set([
 	'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
@@ -26,7 +39,7 @@ const TLS_ERROR_CODES = new Set([
 ]);
 
 export const TLS_HINT =
-	'n8n does not trust the TLS certificate of the MAX API. platform-api2.max.ru uses a certificate from the Russian Trusted Root CA: install that CA on the n8n host (see the node README) or enable "Ignore SSL Issues" in the MAX Bot API credential.';
+	'n8n does not trust the TLS certificate of the MAX API. platform-api2.max.ru uses a certificate from the Russian Trusted Root CA: set API Domain to "Automatic" in the MAX Bot API credential, or install that CA on the n8n host (see the node README).';
 
 /**
  * Plain copy of a TLS error for NodeApiError. Passing the original NodeApiError would
@@ -62,6 +75,8 @@ export interface MaxRequestOptions {
 	/** Error codes after which the request is retried (with exponential backoff). */
 	retryOn?: string[];
 	maxRetries?: number;
+	/** MAX error codes that count as success, e.g. not.found when removing something that is already gone. */
+	acceptCodes?: string[];
 }
 
 interface FullResponse<T> {
@@ -77,7 +92,8 @@ interface MaxErrorBody {
 }
 
 export interface ConnectionSettings {
-	baseUrl: string;
+	/** Domains to try in order; more than one only for the Automatic setting. */
+	baseUrls: string[];
 	skipSslCertificateValidation: boolean;
 }
 
@@ -87,10 +103,16 @@ export function trimBaseUrl(url: string): string {
 
 export async function connectionSettings(ctx: MaxContext): Promise<ConnectionSettings> {
 	const credentials = await ctx.getCredentials(CREDENTIAL_NAME);
-	return {
-		baseUrl: trimBaseUrl(String(credentials.baseUrl || DEFAULT_BASE_URL)),
-		skipSslCertificateValidation: credentials.ignoreSslIssues === true,
-	};
+	const skipSslCertificateValidation = credentials.ignoreSslIssues === true;
+	const configured = String(credentials.baseUrl || AUTO_BASE_URL);
+	if (configured !== AUTO_BASE_URL) {
+		return { baseUrls: [trimBaseUrl(configured)], skipSslCertificateValidation };
+	}
+	const baseUrls =
+		primaryUntrusted && !skipSslCertificateValidation
+			? [LEGACY_BASE_URL]
+			: [PRIMARY_BASE_URL, LEGACY_BASE_URL];
+	return { baseUrls, skipSslCertificateValidation };
 }
 
 function asErrorBody(body: unknown): MaxErrorBody | undefined {
@@ -159,7 +181,7 @@ export async function maxApiRequest<T = IDataObject>(
 	const settings = await connectionSettings(ctx);
 	const requestOptions: IHttpRequestOptions = {
 		method: options.method,
-		url: `${settings.baseUrl}${options.path}`,
+		url: '',
 		headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
 		json: true,
 		returnFullResponse: true,
@@ -172,7 +194,11 @@ export async function maxApiRequest<T = IDataObject>(
 
 	const retryOn = options.retryOn ?? [];
 	const maxRetries = options.maxRetries ?? 3;
-	for (let attempt = 0; ; attempt++) {
+	let domain = 0;
+	let attempt = 0;
+	for (;;) {
+		const baseUrl = settings.baseUrls[domain];
+		requestOptions.url = `${baseUrl}${options.path}`;
 		let response: FullResponse<unknown>;
 		try {
 			response = (await ctx.helpers.httpRequestWithAuthentication.call(
@@ -182,6 +208,12 @@ export async function maxApiRequest<T = IDataObject>(
 			)) as FullResponse<unknown>;
 		} catch (error) {
 			if (isTlsTrustError(error)) {
+				if (domain + 1 < settings.baseUrls.length) {
+					// Automatic domain: this host does not trust the Russian CA, use the legacy domain.
+					if (baseUrl === PRIMARY_BASE_URL) primaryUntrusted = true;
+					domain++;
+					continue;
+				}
 				throw new NodeApiError(ctx.getNode(), tlsErrorBody(error), {
 					message: 'TLS certificate of the MAX API is not trusted',
 					description: TLS_HINT,
@@ -190,8 +222,11 @@ export async function maxApiRequest<T = IDataObject>(
 			throw new NodeApiError(ctx.getNode(), error as JsonObject);
 		}
 		if (!isFailure(response.statusCode, response.body)) return response.body as T;
+		const code = errorCodeOf(response.body);
+		if (code !== undefined && options.acceptCodes?.includes(code)) return response.body as T;
 		if (attempt < maxRetries && shouldRetry(response.statusCode, response.body, retryOn)) {
 			await sleep(1000 * 2 ** attempt);
+			attempt++;
 			continue;
 		}
 		throw toApiError(ctx.getNode(), response.statusCode, response.body);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Credential: new default API domain **Automatic**. It uses `platform-api2.max.ru` and switches to `platform-api.max.ru` when the n8n host does not trust the Russian Trusted Root CA, so the credential works on any host without turning off certificate checks. Existing credentials keep their domain.
+- MAX Trigger: removing a webhook that MAX has already dropped no longer fails, so a failed registration no longer hides its real cause behind "Subscription … is not found".
+
 ## 0.1.0
 
 First release.

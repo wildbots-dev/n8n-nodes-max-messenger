@@ -8,6 +8,7 @@ console.log('registered:', ours.map((n) => `${n.name} (${n.displayName})`).join(
 
 const accessToken = botToken();
 const variants = [
+	['MAX auto', { accessToken, baseUrl: 'auto', ignoreSslIssues: false }],
 	['MAX api2 strict', { accessToken, baseUrl: 'https://platform-api2.max.ru', ignoreSslIssues: false }],
 	['MAX api2 ignore-ssl', { accessToken, baseUrl: 'https://platform-api2.max.ru', ignoreSslIssues: true }],
 	['MAX legacy', { accessToken, baseUrl: 'https://platform-api.max.ru', ignoreSslIssues: false }],

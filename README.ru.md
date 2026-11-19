@@ -21,14 +21,14 @@
 Создайте бота на [business.max.ru](https://business.max.ru) (*Чат-боты → бот → Настройки*) и скопируйте токен. В n8n создайте учётные данные **MAX Bot API**:
 
 - **Access Token:** токен бота.
-- **API Domain:** `platform-api2.max.ru` (по умолчанию, MAX требует его с июля 2026) или старый `platform-api.max.ru`.
-- **Ignore SSL Issues:** не включайте без нужды.
+- **API Domain:** **Automatic** (по умолчанию) — нода работает с `platform-api2.max.ru`, который MAX требует с июля 2026, а если n8n не доверяет его сертификату, переходит на старый `platform-api.max.ru`. Можно выбрать домен и вручную.
+- **Ignore SSL Issues:** не включайте, с Automatic не нужно.
 
 ### Сертификат Минцифры
 
-У `platform-api2.max.ru` сертификат от Russian Trusted Root CA. Если n8n ему не доверяет, нода пишет *«TLS certificate of the MAX API is not trusted»*. Варианты:
+У `platform-api2.max.ru` сертификат от Russian Trusted Root CA, которому большинство установок n8n не доверяет. С доменом **Automatic** ничего делать не нужно: нода сама перейдёт на `platform-api.max.ru`, проверка сертификата при этом остаётся. Если выбрать `platform-api2.max.ru` вручную, а n8n ему не доверяет, нода пишет *«TLS certificate of the MAX API is not trusted»*. Варианты:
 
-1. **Добавить сертификат (рекомендуется).** Скачайте `russian_trusted_root_ca.cer` и `russian_trusted_sub_ca.cer` с [gosuslugi.ru/crt](https://www.gosuslugi.ru/crt), соберите в один PEM и передайте n8n через `NODE_EXTRA_CA_CERTS`:
+1. **Добавить сертификат.** Скачайте `russian_trusted_root_ca.cer` и `russian_trusted_sub_ca.cer` с [gosuslugi.ru/crt](https://www.gosuslugi.ru/crt), соберите в один PEM и передайте n8n через `NODE_EXTRA_CA_CERTS`:
 
    ```bash
    mkdir -p certs
@@ -37,7 +37,7 @@
    ```
 
    Каждый сертификат в файле должен заканчиваться переводом строки, иначе Node.js файл проигнорирует.
-2. **Выбрать старый домен** `platform-api.max.ru`.
+2. **Выбрать в учётных данных Automatic** (или старый домен).
 3. **Включить «Ignore SSL Issues»**: проверка сертификата отключится только для запросов к MAX.
 
 ## Что умеет нода MAX

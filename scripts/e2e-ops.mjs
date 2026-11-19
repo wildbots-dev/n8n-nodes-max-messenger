@@ -10,11 +10,9 @@ const ONLY = process.env.ONLY ? new RegExp(process.env.ONLY) : null;
 if (!CHAT_ID || !USER_ID) throw new Error('CHAT_ID and USER_ID are required');
 
 await login();
-const cred = await ensureCredential(process.env.CRED ?? 'MAX api2 strict', {
-	accessToken: botToken(),
-	baseUrl: 'https://platform-api2.max.ru',
-	ignoreSslIssues: false,
-});
+// DOMAIN: auto (default), https://platform-api2.max.ru or https://platform-api.max.ru
+const DOMAIN = process.env.DOMAIN ?? 'auto';
+const cred = await ensureCredential(`MAX e2e ${DOMAIN}`, { accessToken: botToken(), baseUrl: DOMAIN, ignoreSslIssues: false });
 
 const FILES = '/home/node/.n8n-files';
 const readFile = (name, file, field = 'data') => ({

@@ -103,10 +103,12 @@ export class MaxTrigger implements INodeType {
 				const webhookUrl = this.getNodeWebhookUrl('default') as string;
 				const staticData = this.getWorkflowStaticData('node') as TriggerStaticData;
 				// Only this workflow's own URL is removed; other subscriptions of the bot stay.
+				// Already gone (MAX removed it after 8 hours of failed deliveries, or creation did not finish) is fine.
 				await maxApiRequest(this, {
 					method: 'DELETE',
 					path: '/subscriptions',
 					qs: { url: webhookUrl },
+					acceptCodes: ['not.found'],
 				});
 				delete staticData.webhookSecret;
 				delete staticData.webhookUrl;

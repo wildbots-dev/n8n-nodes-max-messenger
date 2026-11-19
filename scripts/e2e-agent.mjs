@@ -5,7 +5,8 @@ import { api, botToken, ensureCredential, login, runWorkflow } from './lib.mjs';
 
 const CHAT_ID = process.env.CHAT_ID;
 await login();
-const cred = await ensureCredential('MAX api2 strict', { accessToken: botToken(), baseUrl: 'https://platform-api2.max.ru', ignoreSslIssues: false });
+const domain = process.env.DOMAIN ?? 'auto';
+const cred = await ensureCredential(`MAX e2e ${domain}`, { accessToken: botToken(), baseUrl: domain, ignoreSslIssues: false });
 const llmData = { apiKey: readFileSync(process.env.LLM_KEY_FILE, 'utf8').trim(), url: process.env.LLM_URL };
 if (!process.env.LLM_URL || !process.env.LLM_MODEL) throw new Error('Set LLM_URL and LLM_MODEL (OpenAI-compatible endpoint and model ID)');
 const list = (await api('GET', '/rest/credentials')).json.data;

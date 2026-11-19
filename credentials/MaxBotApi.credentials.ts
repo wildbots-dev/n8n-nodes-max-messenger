@@ -32,20 +32,26 @@ export class MaxBotApi implements ICredentialType {
 			type: 'options',
 			options: [
 				{
+					name: 'Automatic',
+					value: 'auto',
+					description:
+						'Use platform-api2.max.ru, and platform-api.max.ru when this n8n host does not trust the certificate of platform-api2.max.ru',
+				},
+				{
 					name: 'platform-api2.max.ru',
 					value: 'https://platform-api2.max.ru',
 					description:
-						'Current domain required by MAX. Its TLS certificate is issued by the Russian Trusted Root CA.',
+						'Domain required by MAX. Its TLS certificate is issued by the Russian Trusted Root CA, which the n8n host must trust.',
 				},
 				{
 					name: 'platform-api.max.ru (Legacy)',
 					value: 'https://platform-api.max.ru',
-					description: 'Previous domain with a globally trusted certificate. MAX asks bots to move off it.',
+					description: 'Previous domain with a globally trusted certificate',
 				},
 			],
-			default: 'https://platform-api2.max.ru',
+			default: 'auto',
 			description:
-				'If n8n does not trust the Russian Trusted Root CA, install it on the host (see the README) or enable "Ignore SSL Issues" below',
+				'Automatic works on any n8n host. Pick a domain explicitly only if you need to.',
 		},
 		{
 			displayName: 'Ignore SSL Issues (Insecure)',
@@ -53,7 +59,7 @@ export class MaxBotApi implements ICredentialType {
 			type: 'boolean',
 			default: false,
 			description:
-				'Whether to connect even if the TLS certificate cannot be verified. Only needed for platform-api2.max.ru when the Russian Trusted Root CA is not installed on the n8n host.',
+				'Whether to connect even if the TLS certificate cannot be verified. Not needed with the Automatic domain.',
 		},
 	];
 
@@ -64,7 +70,8 @@ export class MaxBotApi implements ICredentialType {
 
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: '={{$credentials.baseUrl}}',
+			// Automatic is tested on the domain every host trusts; requests still prefer platform-api2.max.ru.
+			baseURL: "={{ $credentials.baseUrl === 'auto' ? 'https://platform-api.max.ru' : $credentials.baseUrl }}",
 			url: '/me',
 			skipSslCertificateValidation: '={{$credentials.ignoreSslIssues}}',
 		},

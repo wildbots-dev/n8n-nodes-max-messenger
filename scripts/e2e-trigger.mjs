@@ -1,13 +1,23 @@
 // MAX Trigger lifecycle: activate → subscription exists with chosen types; change types → re-subscribed;
 // deactivate → only our subscription is removed; reactivate. Other subscriptions of the bot must stay intact.
-import { api, botToken, HOST, login } from './lib.mjs';
+import { api, botToken, ensureCredential, HOST, login } from './lib.mjs';
 
 await login();
 const token = botToken();
 const subs = async () => (await (await fetch('https://platform-api.max.ru/subscriptions', { headers: { Authorization: token } })).json()).subscriptions ?? [];
-const wf = (await api('GET', '/rest/workflows')).json.data.find((w) => w.name === 'MAX trigger e2e');
-const ours = (list) => list.filter((s) => s.url.includes(HOST));
-const others = (list) => list.filter((s) => !s.url.includes(HOST)).map((s) => s.url).sort().join('|');
+let wf = (await api('GET', '/rest/workflows')).json.data.find((w) => w.name === 'MAX trigger e2e');
+if (!wf) {
+	// First run on a fresh instance: create and activate the trigger workflow.
+	const domain = process.env.DOMAIN ?? 'auto';
+	const cred = await ensureCredential(`MAX e2e ${domain}`, { accessToken: token, baseUrl: domain, ignoreSslIssues: false });
+	const updates = ['message_created', 'message_callback', 'bot_started', 'bot_added', 'user_added', 'message_edited', 'message_removed'];
+	const nodes = [{ name: 'MAX Trigger', type: 'n8n-nodes-max-messenger.maxTrigger', typeVersion: 1, position: [0, 0], webhookId: crypto.randomUUID(), parameters: { updates }, credentials: { maxBotApi: cred } }];
+	wf = (await api('POST', '/rest/workflows', { name: 'MAX trigger e2e', nodes, connections: {}, settings: { executionOrder: 'v1' } })).json.data;
+	const act = await api('POST', `/rest/workflows/${wf.id}/activate`, { versionId: wf.versionId });
+	console.log('created and activated the trigger workflow', act.status);
+}
+const ours = (list) => list.filter((s) => s.url.startsWith(`https://${HOST}/`));
+const others = (list) => list.filter((s) => !s.url.startsWith(`https://${HOST}/`)).map((s) => s.url).sort().join('|');
 let report = [];
 /** Poll the subscription list until `cond` holds (n8n and MAX apply changes asynchronously). */
 const waitFor = async (cond) => { let list = []; for (let i = 0; i < 20; i++) { list = await subs(); if (cond(list)) return list; await new Promise((r) => setTimeout(r, 1500)); } return list; };

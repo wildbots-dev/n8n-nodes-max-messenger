@@ -31,10 +31,18 @@ export async function api(method, path, body) {
 }
 
 export async function login() {
-	let r = await api('POST', '/rest/login', { emailOrLdapLoginId: OWNER.email, password: OWNER.password });
-	if (r.status !== 200) {
+	let r;
+	for (let attempt = 0; attempt < 6; attempt++) {
+		r = await api('POST', '/rest/login', { emailOrLdapLoginId: OWNER.email, password: OWNER.password });
+		if (r.status !== 429) break;
+		// n8n throttles logins; wait and try again.
+		await new Promise((res) => setTimeout(res, 15_000));
+	}
+	if (r.status === 401 || r.status === 404) {
 		r = await api('POST', '/rest/owner/setup', OWNER);
 		if (r.status !== 200) throw new Error(`owner setup: ${r.status} ${JSON.stringify(r.json).slice(0, 300)}`);
+	} else if (r.status !== 200) {
+		throw new Error(`login: ${r.status} ${JSON.stringify(r.json).slice(0, 300)}`);
 	}
 }
 

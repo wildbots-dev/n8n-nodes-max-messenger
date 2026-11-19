@@ -5,7 +5,8 @@
 import { api, botToken, ensureCredential, login } from './lib.mjs';
 
 await login();
-const cred = await ensureCredential('MAX api2 strict', { accessToken: botToken(), baseUrl: 'https://platform-api2.max.ru', ignoreSslIssues: false });
+const domain = process.env.DOMAIN ?? 'auto';
+const cred = await ensureCredential(`MAX e2e ${domain}`, { accessToken: botToken(), baseUrl: domain, ignoreSslIssues: false });
 const wf = (await api('GET', '/rest/workflows')).json.data.find((w) => w.name === 'MAX trigger e2e');
 const full = (await api('GET', `/rest/workflows/${wf.id}`)).json.data;
 const trigger = full.nodes.find((n) => n.type.endsWith('maxTrigger'));
