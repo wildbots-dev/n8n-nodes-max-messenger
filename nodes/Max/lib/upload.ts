@@ -5,7 +5,25 @@ import { connectionSettings, isTlsTrustError, maxApiRequest, TLS_HINT, tlsErrorB
 
 export type UploadType = 'image' | 'video' | 'audio' | 'file';
 
-const UPLOAD_TIMEOUT_MS = 300_000;
+/** At least 5 minutes, plus 1 second per megabyte for large files. */
+export function uploadTimeoutMs(size: number): number {
+	return Math.max(300_000, Math.ceil(size / 1000));
+}
+
+/** Formats MAX accepts as images and videos (dev.max.ru, POST /uploads); anything else is sent as a file. */
+const IMAGE_MIME = new Set([
+	'image/jpeg',
+	'image/jpg',
+	'image/pjpeg',
+	'image/png',
+	'image/gif',
+	'image/tiff',
+	'image/bmp',
+	'image/x-ms-bmp',
+	'image/heic',
+	'image/heif',
+]);
+const VIDEO_MIME = new Set(['video/mp4', 'video/quicktime', 'video/x-matroska', 'video/webm']);
 
 export interface MultipartBody {
 	body: Buffer;
@@ -41,8 +59,8 @@ export function buildMultipart(
 /** Pick the MAX upload type for a binary file from its MIME type. */
 export function uploadTypeFromMime(mimeType: string | undefined): UploadType {
 	const mime = (mimeType ?? '').split(';')[0].trim().toLowerCase();
-	if (mime.startsWith('image/') && mime !== 'image/svg+xml') return 'image';
-	if (mime.startsWith('video/')) return 'video';
+	if (IMAGE_MIME.has(mime)) return 'image';
+	if (VIDEO_MIME.has(mime)) return 'video';
 	if (mime.startsWith('audio/')) return 'audio';
 	return 'file';
 }
@@ -112,7 +130,7 @@ export async function uploadAttachment(
 		json: false,
 		returnFullResponse: true,
 		ignoreHttpStatusErrors: true,
-		timeout: UPLOAD_TIMEOUT_MS,
+		timeout: uploadTimeoutMs(multipart.body.length),
 		skipSslCertificateValidation,
 	};
 	let response: { statusCode: number; body: unknown };
@@ -143,6 +161,7 @@ export async function uploadAttachment(
 	if (!payload) {
 		throw new NodeOperationError(ctx.getNode(), 'MAX did not return a token for the uploaded file', {
 			itemIndex,
+			description: `Answer of the upload server: ${String(response.body ?? '').slice(0, 500)}`,
 		});
 	}
 	return { type, payload };

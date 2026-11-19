@@ -23,7 +23,13 @@ const readFile = (name, file, field = 'data') => ({
 	typeVersion: 1,
 	parameters: { operation: 'read', fileSelector: `${FILES}/${file}`, options: { dataPropertyName: field } },
 });
-const updates = JSON.parse(readFileSync(new URL('./out/updates.json', import.meta.url), 'utf8'));
+/** Updates received by the trigger earlier (saved by hand to scripts/out/updates.json); optional. */
+let updates = [];
+try {
+	updates = JSON.parse(readFileSync(new URL('./out/updates.json', import.meta.url), 'utf8'));
+} catch {
+	console.log('scripts/out/updates.json not found: token, sticker and reply tests are skipped');
+}
 const userImage = updates
 	.flatMap((u) => u.message?.body?.attachments ?? [])
 	.find((a) => a.type === 'image')?.payload?.token;
@@ -135,6 +141,7 @@ await check('send image + video album', [readFile('Read', 'test-image.png'), rea
 
 await check('send 13 attachments → validation', [maxNode('MAX', send({ attachments: { attachment: Array.from({ length: 13 }, () => ({ source: 'location', latitude: 1, longitude: 1 })) } }), cred)], failsWith(/at most 12/));
 
+await check('send 12 attachments + keyboard → validation', [maxNode('MAX', send({ keyboard: 'json', keyboardJson: '[[{"type":"message","text":"Hi"}]]', attachments: { attachment: Array.from({ length: 12 }, () => ({ source: 'location', latitude: 1, longitude: 1 })) } }), cred)], failsWith(/including the keyboard/));
 await check('send image by URL', [maxNode('MAX', send({ text: 'e2e: image by URL', attachments: { attachment: [{ source: 'url', url: 'https://raw.githubusercontent.com/n8n-io/n8n/master/assets/n8n-logo.png' }] } }), cred)],
 	(r) => isOk(r) && atts(r) === 'image' || atts(r));
 
@@ -184,6 +191,11 @@ await check('get many (newer than 10 min ago)', [maxNode('MAX', { resource: 'mes
 	(r) => isOk(r) && r.items.length > 0 && r.items.every((m) => m.json.timestamp >= Date.now() - 11 * 60_000) || `items=${r?.items?.length} oldest=${Math.min(...(r?.items ?? []).map((m) => m.json.timestamp))}`);
 await check('get many (older than 10 min ago)', [maxNode('MAX', { resource: 'message', operation: 'getAll', chatId: CHAT_ID, limit: 100, filters: { before: new Date(Date.now() - 10 * 60_000).toISOString() } }, cred)],
 	(r) => isOk(r) && r.items.every((m) => m.json.timestamp <= Date.now() - 9 * 60_000) || `items=${r?.items?.length} newest=${Math.max(...(r?.items ?? []).map((m) => m.json.timestamp))}`);
+await check('get many: return all', [maxNode('MAX', { resource: 'message', operation: 'getAll', chatId: CHAT_ID, returnAll: true }, cred)],
+	(r) => isOk(r) && r.items.length > 100 && new Set(r.items.map((m) => m.json.body.mid)).size === r.items.length || `items=${r?.items?.length}`);
+await check('get many: limit 150', [maxNode('MAX', { resource: 'message', operation: 'getAll', chatId: CHAT_ID, returnAll: false, limit: 150 }, cred)],
+	(r) => isOk(r) && r.items.length === 150 || `items=${r?.items?.length}`);
+await check('get many: bad date → validation', [maxNode('MAX', { resource: 'message', operation: 'getAll', chatId: CHAT_ID, returnAll: false, limit: 5, filters: { before: 'not a date' } }, cred)], (r) => !!r?.error);
 await check('delete message', [maxNode('MAX', { resource: 'message', operation: 'delete', messageId: state.editMid }, cred)],
 	(r) => isOk(r) && firstJson(r).success === true || JSON.stringify(firstJson(r)));
 await check('get deleted message → API error', [maxNode('MAX', { resource: 'message', operation: 'get', messageId: state.editMid }, cred)], (r) => !!r?.error);
@@ -216,12 +228,13 @@ await check('group: get many', [maxNode('MAX', { resource: 'message', operation:
 }
 
 // ---------- Bot ----------
-await check('bot get info', [maxNode('MAX', { resource: 'bot', operation: 'getInfo' }, cred)], (r) => isOk(r) && firstJson(r).is_bot === true);
+await check('bot get info (simplified)', [maxNode('MAX', { resource: 'bot', operation: 'getInfo' }, cred)], (r) => isOk(r) && firstJson(r).is_bot === true && firstJson(r).avatar_url === undefined || JSON.stringify(Object.keys(firstJson(r))));
+await check('bot get info (raw)', [maxNode('MAX', { resource: 'bot', operation: 'getInfo', simplify: false }, cred)], (r) => isOk(r) && 'last_activity_time' in firstJson(r) || JSON.stringify(Object.keys(firstJson(r))));
 await check('bot set commands', [maxNode('MAX', { resource: 'bot', operation: 'setCommands', commands: { command: [{ name: '/start', description: 'Start' }, { name: 'help', description: 'Help' }] } }, cred)],
 	(r) => isOk(r) || JSON.stringify(r?.error));
-await check('bot info shows commands', [maxNode('MAX', { resource: 'bot', operation: 'getInfo' }, cred)], (r) => isOk(r) && (firstJson(r).commands ?? []).map((c) => c.name).join(',') === 'start,help' || JSON.stringify(firstJson(r).commands));
+await check('bot info shows commands', [maxNode('MAX', { resource: 'bot', operation: 'getInfo', simplify: false }, cred)], (r) => isOk(r) && (firstJson(r).commands ?? []).map((c) => c.name).join(',') === 'start,help' || JSON.stringify(firstJson(r).commands));
 await check('bot clear commands', [maxNode('MAX', { resource: 'bot', operation: 'setCommands', commands: {} }, cred)], (r) => isOk(r) || JSON.stringify(r?.error));
-await check('bot info commands cleared', [maxNode('MAX', { resource: 'bot', operation: 'getInfo' }, cred)], (r) => isOk(r) && !(firstJson(r).commands ?? []).length || JSON.stringify(firstJson(r).commands));
+await check('bot info commands cleared', [maxNode('MAX', { resource: 'bot', operation: 'getInfo', simplify: false }, cred)], (r) => isOk(r) && !(firstJson(r).commands ?? []).length || JSON.stringify(firstJson(r).commands));
 
 // ---------- continueOnFail + multiple items ----------
 await check('continue on fail keeps going', [maxNode('MAX', send({ chatId: '1', text: 'x' }), cred, { onError: 'continueRegularOutput' })],

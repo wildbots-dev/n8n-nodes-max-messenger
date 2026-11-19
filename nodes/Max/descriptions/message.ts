@@ -119,7 +119,7 @@ export const messageSendFields: INodeProperties[] = [
 				type: 'boolean',
 				default: true,
 				description:
-					'Whether to split text longer than 4000 characters into several messages. Attachments go with the first one, the keyboard with the last.',
+					'Whether to split text longer than 4000 characters into several messages. Attachments go with the first one, the keyboard with the last. Formatting that spans a split point is not preserved.',
 			},
 		],
 	},
@@ -184,13 +184,21 @@ export const messageGetFields: INodeProperties[] = [messageIdField(show('message
 export const messageGetAllFields: INodeProperties[] = [
 	chatIdField(show('message', ['getAll']), 'ID of the chat or channel. The bot must be an administrator there.'),
 	{
+		displayName: 'Return All',
+		name: 'returnAll',
+		type: 'boolean',
+		default: false,
+		description: 'Whether to return all results or only up to a given limit',
+		displayOptions: show('message', ['getAll']),
+	},
+	{
 		displayName: 'Limit',
 		name: 'limit',
 		type: 'number',
-		typeOptions: { minValue: 1, maxValue: 100 },
+		typeOptions: { minValue: 1 },
 		default: 50,
 		description: 'Max number of results to return',
-		displayOptions: show('message', ['getAll']),
+		displayOptions: show('message', ['getAll'], { returnAll: [false] }),
 	},
 	{
 		displayName: 'Filters',

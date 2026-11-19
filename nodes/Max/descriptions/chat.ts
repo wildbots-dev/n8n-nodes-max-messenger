@@ -81,7 +81,7 @@ export const chatFields: INodeProperties[] = [
 		type: 'boolean',
 		default: true,
 		description: 'Whether to return a simplified version of the response instead of the raw data',
-		displayOptions: show('chat', ['get', 'getMembers', 'getAdmins']),
+		displayOptions: show('chat', ['get', 'getMembers', 'getAdmins', 'getMembership']),
 	},
 
 	// Update

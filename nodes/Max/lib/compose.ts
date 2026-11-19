@@ -51,6 +51,13 @@ export function requireText(
 	return text;
 }
 
+/** Copy only the listed fields (used by the Simplify option). */
+export function pick(obj: IDataObject, fields: string[]): IDataObject {
+	const out: IDataObject = {};
+	for (const field of fields) if (obj[field] !== undefined) out[field] = obj[field];
+	return out;
+}
+
 export function shortenFileName(name: string): string {
 	if (name.length <= MAX_FILE_NAME_LENGTH) return name;
 	const dot = name.lastIndexOf('.');
@@ -74,7 +81,7 @@ async function buildAttachment(
 					? uploadTypeFromMime(binary.mimeType)
 					: input.mediaType;
 			const fallbackName = `${type}.${binary.fileExtension || 'bin'}`;
-			const fileName = shortenFileName((input.fileName || binary.fileName || fallbackName).trim());
+			const fileName = shortenFileName(input.fileName?.trim() || binary.fileName?.trim() || fallbackName);
 			return await uploadAttachment(ctx, itemIndex, type, buffer, fileName, binary.mimeType);
 		}
 		case 'url': {
@@ -107,16 +114,22 @@ async function buildAttachment(
 	}
 }
 
-/** Build (and upload, for binary files) all attachments set in the "Attachments" parameter. */
+/**
+ * Build (and upload, for binary files) all attachments set in the "Attachments" parameter.
+ * MAX counts the inline keyboard as an attachment too, so pass `withKeyboard` to keep room for it.
+ * The limit is checked before anything is uploaded.
+ */
 export async function attachmentsFromParams(
 	ctx: IExecuteFunctions,
 	itemIndex: number,
+	withKeyboard: boolean,
 ): Promise<IDataObject[]> {
 	const inputs = ctx.getNodeParameter('attachments.attachment', itemIndex, []) as AttachmentInput[];
-	if (inputs.length > MAX_ATTACHMENTS) {
+	const total = inputs.length + (withKeyboard ? 1 : 0);
+	if (total > MAX_ATTACHMENTS) {
 		throw new NodeOperationError(
 			ctx.getNode(),
-			`A message can have at most ${MAX_ATTACHMENTS} attachments (got ${inputs.length})`,
+			`A message can have at most ${MAX_ATTACHMENTS} attachments including the keyboard (got ${total})`,
 			{ itemIndex },
 		);
 	}
@@ -160,8 +173,8 @@ export async function replacementAttachments(
 	const mode = ctx.getNodeParameter('attachmentsMode', itemIndex, 'keep') as string;
 	if (mode === 'keep') return undefined;
 	if (mode === 'remove') return [];
-	const attachments = await attachmentsFromParams(ctx, itemIndex);
 	const keyboard = keyboardFromParams(ctx, itemIndex);
+	const attachments = await attachmentsFromParams(ctx, itemIndex, keyboard !== undefined);
 	if (keyboard) attachments.push(keyboard);
 	return attachments;
 }

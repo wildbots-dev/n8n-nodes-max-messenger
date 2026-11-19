@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { shortenFileName } from '../nodes/Max/lib/compose';
-import { attachmentPayload, buildMultipart, uploadTypeFromMime } from '../nodes/Max/lib/upload';
+import { attachmentPayload, buildMultipart, uploadTimeoutMs, uploadTypeFromMime } from '../nodes/Max/lib/upload';
 
 describe('uploadTypeFromMime', () => {
 	it.each([
@@ -10,6 +10,10 @@ describe('uploadTypeFromMime', () => {
 		['audio/mpeg', 'audio'],
 		['application/pdf', 'file'],
 		['image/svg+xml', 'file'],
+		['image/webp', 'file'],
+		['image/heic', 'image'],
+		['video/quicktime', 'video'],
+		['video/x-msvideo', 'file'],
 		[undefined, 'file'],
 	])('%s → %s', (mime, type) => {
 		expect(uploadTypeFromMime(mime)).toBe(type);
@@ -64,5 +68,12 @@ describe('shortenFileName', () => {
 		const name = shortenFileName(`${'x'.repeat(300)}.pdf`);
 		expect(name).toHaveLength(200);
 		expect(name.endsWith('.pdf')).toBe(true);
+	});
+});
+
+describe('uploadTimeoutMs', () => {
+	it('is 5 minutes for small files and grows with size', () => {
+		expect(uploadTimeoutMs(1000)).toBe(300_000);
+		expect(uploadTimeoutMs(1_000_000_000)).toBe(1_000_000);
 	});
 });

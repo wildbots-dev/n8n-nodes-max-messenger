@@ -5,7 +5,7 @@
 First release.
 
 - **MAX** node:
-  - Message: Send, Edit, Delete, Get, Get Many, Answer Callback.
+  - Message: Send, Edit, Delete, Get, Get Many (with Return All), Answer Callback.
   - Chat: Get, Update, Send Action, Pin, Unpin, Get Pinned, Get Members, Get Administrators, Get Bot Membership, Remove Member, Leave.
   - Bot: Get Info, Set Commands. Video: Get.
   - Attachments from binary fields (uploaded automatically), image URLs, tokens, stickers and locations; inline keyboards built in the UI or from JSON; long text split into several messages; retries while MAX processes uploaded media and on HTTP 429.

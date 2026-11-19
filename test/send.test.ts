@@ -106,3 +106,33 @@ describe('Message → Send', () => {
 		await expect(send(ctx, 0)).rejects.toThrow('Bot is not a member of the chat');
 	});
 });
+
+describe('Message → Send limits', () => {
+	it('counts the keyboard towards the 12 attachments before uploading anything', async () => {
+		const attachment = Array.from({ length: 12 }, () => ({ source: 'location', latitude: 1, longitude: 1 }));
+		const { ctx, calls } = fakeContext(
+			{
+				sendTo: 'chat',
+				chatId: '1',
+				attachments: { attachment },
+				keyboard: 'json',
+				keyboardJson: '[[{"type":"message","text":"Hi"}]]',
+			},
+			ok,
+		);
+		await expect(send(ctx, 0)).rejects.toThrow(/including the keyboard/);
+		expect(calls).toHaveLength(0);
+	});
+
+	it('names the parts already delivered when a later part is rejected', async () => {
+		let n = 0;
+		const text = `${'a'.repeat(3990)}\n\n${'b'.repeat(100)}`;
+		const { ctx } = fakeContext({ sendTo: 'chat', chatId: '1', text }, ok);
+		(ctx.helpers.httpRequestWithAuthentication as unknown as ReturnType<typeof vi.fn>).mockImplementation(async () =>
+			++n === 1
+				? { statusCode: 200, body: { message: { body: { mid: 'mid.first' } } }, headers: {} }
+				: { statusCode: 400, body: { code: 'proto.payload', message: 'bad' }, headers: {} },
+		);
+		await expect(send(ctx, 0)).rejects.toMatchObject({ description: expect.stringContaining('mid.first') });
+	});
+});

@@ -207,7 +207,8 @@ export function keyboardFields(displayOptions: IDisplayOptions): INodeProperties
 			displayName: 'Keyboard JSON',
 			name: 'keyboardJson',
 			type: 'json',
-			default: '[[{"type": "callback", "text": "Yes", "payload": "yes"}]]',
+			default: '',
+			placeholder: 'e.g. [[{"type": "callback", "text": "Yes", "payload": "yes"}]]',
 			description:
 				'Array of rows, each row an array of buttons as described in the MAX API (types: callback, link, message, request_contact, request_geo_location, clipboard, open_app)',
 			displayOptions: { show: { ...base, keyboard: ['json'] } },
@@ -225,7 +226,7 @@ export function attachmentsField(displayOptions: IDisplayOptions): INodeProperti
 		placeholder: 'Add Attachment',
 		default: {},
 		description:
-			'Up to 12 attachments. Images and videos can be combined; a file, audio, sticker or location must be the only attachment.',
+			'Up to 12 attachments, the inline keyboard counts as one. Images and videos can be combined; a file, audio, sticker or location must be the only attachment.',
 		displayOptions,
 		options: [
 			{

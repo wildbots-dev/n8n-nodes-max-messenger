@@ -44,8 +44,12 @@ export function isTlsTrustError(error: unknown): boolean {
 	const codes = [err?.code, err?.cause?.code].filter((c): c is string => typeof c === 'string');
 	if (codes.some((code) => TLS_ERROR_CODES.has(code))) return true;
 	const message = typeof err?.message === 'string' ? err.message : '';
-	return [...TLS_ERROR_CODES].some((code) => message.includes(code)) || /certificate/i.test(message);
+	return (
+		[...TLS_ERROR_CODES].some((code) => message.includes(code)) ||
+		/issuer certificate|self[- ]signed/i.test(message)
+	);
 }
+
 const USER_AGENT = 'n8n-nodes-max-messenger';
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -109,13 +113,27 @@ export function isFailure(statusCode: number, body: unknown): boolean {
 	return asErrorBody(body)?.success === false;
 }
 
+/** Messages for MAX codes whose own text is not helpful to a workflow author. */
+const FRIENDLY_MESSAGES: Record<string, string> = {
+	'attachment.not.ready':
+		'MAX is still processing the uploaded file. Run the node again in a minute or send a smaller file.',
+	'verify.token': 'The access token is invalid or has been revoked',
+};
+
 export function toApiError(node: INode, statusCode: number, body: unknown): NodeApiError {
 	const parsed = asErrorBody(body);
-	const httpCode = String(statusCode);
+	// MAX answers some failures with HTTP 200 and success:false; that status is not an HTTP failure.
+	const httpCode = statusCode >= 400 ? String(statusCode) : undefined;
 	if (parsed && (parsed.message || parsed.code)) {
-		return new NodeApiError(node, parsed as JsonObject, {
-			message: parsed.message || parsed.code || `MAX API answered with HTTP ${statusCode}`,
-			description: parsed.code ? `Error code: ${parsed.code}` : undefined,
+		const friendly = parsed.code ? FRIENDLY_MESSAGES[parsed.code] : undefined;
+		// NodeApiError treats a `code` field as the HTTP code, so pass the MAX code under another name.
+		const details: JsonObject = { message: parsed.message ?? '', maxCode: parsed.code ?? '' };
+		if (parsed.success !== undefined) details.success = parsed.success;
+		return new NodeApiError(node, details, {
+			message: friendly ?? (parsed.message || parsed.code || `MAX API answered with HTTP ${statusCode}`),
+			description: parsed.code
+				? `MAX code: ${parsed.code}${friendly && parsed.message ? ` (${parsed.message})` : ''}`
+				: undefined,
 			httpCode,
 		});
 	}

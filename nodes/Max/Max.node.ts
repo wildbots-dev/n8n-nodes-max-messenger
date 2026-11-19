@@ -5,7 +5,8 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
-import { botFields, botOperations, videoFields, videoOperations } from './descriptions/bot';
+import { botFields, botOperations } from './descriptions/bot';
+import { videoFields, videoOperations } from './descriptions/video';
 import { chatFields, chatOperations } from './descriptions/chat';
 import {
 	messageAnswerCallbackFields,
@@ -20,6 +21,7 @@ import * as bot from './operations/bot';
 import * as chat from './operations/chat';
 import * as message from './operations/message';
 import type { OperationHandler } from './operations/types';
+import * as video from './operations/video';
 
 const operations: Record<string, OperationHandler> = {
 	'bot.getInfo': bot.getInfo,
@@ -41,7 +43,7 @@ const operations: Record<string, OperationHandler> = {
 	'message.get': message.get,
 	'message.getAll': message.getAll,
 	'message.send': message.send,
-	'video.get': bot.getVideo,
+	'video.get': video.get,
 };
 
 export class Max implements INodeType {

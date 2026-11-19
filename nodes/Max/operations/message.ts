@@ -1,5 +1,5 @@
-import type { IDataObject, INodeExecutionData } from 'n8n-workflow';
-import { NodeOperationError, sleep } from 'n8n-workflow';
+import type { IDataObject, INodeExecutionData, JsonObject } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError, sleep } from 'n8n-workflow';
 import { compact, maxApiRequest } from '../lib/api';
 import {
 	attachmentsFromParams,
@@ -61,8 +61,8 @@ export const send: OperationHandler = async (ctx, i) => {
 			? { type: 'forward', mid: options.forwardMessageId.trim() }
 			: undefined;
 
-	const media = await attachmentsFromParams(ctx, i);
 	const keyboard = keyboardFromParams(ctx, i);
+	const media = await attachmentsFromParams(ctx, i, keyboard !== undefined);
 	if (link?.type === 'forward' && (text.trim() !== '' || media.length > 0 || keyboard)) {
 		throw new NodeOperationError(
 			ctx.getNode(),
@@ -83,23 +83,37 @@ export const send: OperationHandler = async (ctx, i) => {
 		const isFirst = part === 0;
 		const isLast = part === parts.length - 1;
 		const attachments = [...(isFirst ? media : []), ...(isLast && keyboard ? [keyboard] : [])];
+		const hasText = parts[part].trim() !== '';
 		const body = compact({
-			text: parts[part] === '' ? undefined : parts[part],
-			format: parts[part] === '' ? undefined : format,
+			text: hasText ? parts[part] : undefined,
+			format: hasText ? format : undefined,
 			notify: options.notify === false ? false : undefined,
 			link: isFirst ? link : undefined,
 		});
 		if (attachments.length > 0) body.attachments = attachments;
 		if (!isFirst) await sleep(PAUSE_BETWEEN_PARTS_MS);
-		const response = await maxApiRequest<{ message: IDataObject }>(ctx, {
-			method: 'POST',
-			path: '/messages',
-			qs,
-			body,
-			retryOn: ['attachment.not.ready'],
-			maxRetries: NOT_READY_RETRIES,
-		});
-		sent.push(response.message);
+		try {
+			const response = await maxApiRequest<{ message: IDataObject }>(ctx, {
+				method: 'POST',
+				path: '/messages',
+				qs,
+				body,
+				retryOn: ['attachment.not.ready'],
+				maxRetries: NOT_READY_RETRIES,
+			});
+			sent.push(response.message);
+		} catch (error) {
+			const wrapped =
+				error instanceof NodeOperationError
+					? error
+					: new NodeApiError(ctx.getNode(), error as JsonObject, { itemIndex: i });
+			if (sent.length > 0) {
+				// Earlier parts are already delivered; say so, otherwise a retry would send them twice.
+				const delivered = sent.map((message) => (message.body as IDataObject | undefined)?.mid).join(', ');
+				wrapped.description = `${wrapped.description ? `${wrapped.description}. ` : ''}Part ${part + 1} of ${parts.length} was not sent; parts already delivered: ${delivered}`;
+			}
+			throw wrapped;
+		}
 	}
 
 	const first = sent[0] ?? {};
@@ -163,28 +177,60 @@ export const get: OperationHandler = async (ctx, i) => {
 	return out(message, i);
 };
 
-function toTimestamp(value: unknown): number | undefined {
+const PAGE_SIZE = 100;
+
+/** Milliseconds since epoch for a dateTime parameter; throws on a value that is not a date. */
+function toTimestamp(
+	ctx: Parameters<OperationHandler>[0],
+	value: unknown,
+	label: string,
+	i: number,
+): number | undefined {
 	if (value === undefined || value === null || value === '') return undefined;
-	const time = new Date(String(value)).getTime();
-	return Number.isNaN(time) ? undefined : time;
+	const time = typeof value === 'number' ? value : Date.parse(String(value));
+	if (Number.isNaN(time)) {
+		throw new NodeOperationError(ctx.getNode(), `${label} is not a valid date: "${String(value)}"`, {
+			itemIndex: i,
+		});
+	}
+	return time;
 }
 
 export const getAll: OperationHandler = async (ctx, i) => {
 	const chatId = parseId(ctx, ctx.getNodeParameter('chatId', i), 'Chat ID', i);
-	const limit = ctx.getNodeParameter('limit', i, 50) as number;
+	const returnAll = ctx.getNodeParameter('returnAll', i, false) as boolean;
+	const limit = returnAll ? Infinity : Math.max(1, Math.floor(ctx.getNodeParameter('limit', i, 50) as number));
 	const filters = ctx.getNodeParameter('filters', i, {}) as { before?: string; after?: string };
-	const qs = compact({
-		chat_id: chatId,
-		count: Math.min(Math.max(1, Math.floor(limit)), 100),
-		to: toTimestamp(filters.after),
-		from: toTimestamp(filters.before),
-	});
-	const response = await maxApiRequest<{ messages?: IDataObject[] }>(ctx, {
-		method: 'GET',
-		path: '/messages',
-		qs,
-	});
-	return (response.messages ?? []).map((message) => ({ json: message, pairedItem: { item: i } }));
+	const before = toTimestamp(ctx, filters.before, 'Older Than', i);
+	const after = toTimestamp(ctx, filters.after, 'Newer Than', i);
+	if (before !== undefined && after !== undefined && before <= after) {
+		throw new NodeOperationError(ctx.getNode(), '"Older Than" must be later than "Newer Than"', { itemIndex: i });
+	}
+
+	// MAX returns the newest messages first; `from` is an inclusive upper bound, `to` a lower bound.
+	// Page backwards from the oldest message seen so far and drop the overlap by message ID.
+	const messages: IDataObject[] = [];
+	const seen = new Set<string>();
+	let from = before;
+	while (messages.length < limit) {
+		const response = await maxApiRequest<{ messages?: IDataObject[] }>(ctx, {
+			method: 'GET',
+			path: '/messages',
+			qs: compact({ chat_id: chatId, count: PAGE_SIZE, from, to: after }),
+		});
+		const page = response.messages ?? [];
+		const fresh = page.filter((message) => {
+			const mid = String((message.body as IDataObject | undefined)?.mid ?? '');
+			if (seen.has(mid)) return false;
+			seen.add(mid);
+			return true;
+		});
+		if (fresh.length === 0) break;
+		messages.push(...fresh);
+		from = Math.min(...page.map((message) => Number(message.timestamp)));
+		if (page.length < PAGE_SIZE) break;
+	}
+	return messages.slice(0, limit).map((message) => ({ json: message, pairedItem: { item: i } }));
 };
 
 export const answerCallback: OperationHandler = async (ctx, i) => {

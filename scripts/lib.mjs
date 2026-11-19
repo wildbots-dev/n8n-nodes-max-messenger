@@ -1,12 +1,15 @@
 // Test harness for a real n8n instance (internal REST API). Not part of the package.
-// Env: N8N_URL (public HTTPS address of the n8n instance), MAX_TOKEN_FILE (file with the bot token).
+// Env: N8N_URL (public HTTPS address of the n8n instance), N8N_E2E_EMAIL and N8N_E2E_PASSWORD
+// (owner account of that instance; created on first run), MAX_TOKEN_FILE (file with the bot token).
 import { readFileSync } from 'node:fs';
 import { parse as unflat } from 'flatted';
 
-if (!process.env.N8N_URL || !process.env.MAX_TOKEN_FILE) throw new Error('Set N8N_URL and MAX_TOKEN_FILE');
+for (const name of ['N8N_URL', 'N8N_E2E_EMAIL', 'N8N_E2E_PASSWORD', 'MAX_TOKEN_FILE']) {
+	if (!process.env[name]) throw new Error(`Set ${name}`);
+}
 export const BASE = process.env.N8N_URL.replace(/\/+$/, '');
 export const HOST = new URL(BASE).host;
-const OWNER = { email: 'e2e@example.com', firstName: 'E2E', lastName: 'Test', password: 'E2eTest-12345' };
+const OWNER = { email: process.env.N8N_E2E_EMAIL, firstName: 'E2E', lastName: 'Test', password: process.env.N8N_E2E_PASSWORD };
 let cookie = '';
 
 export async function api(method, path, body) {
@@ -98,7 +101,7 @@ export async function runWorkflow(name, nodes, connections, { keep = false } = {
 		e = (await api('GET', `/rest/executions/${execId}`)).json?.data;
 		if (e && !['running', 'new', 'waiting'].includes(e.status)) break;
 	}
-	if (!keep) await api('DELETE', `/rest/workflows/${wf.id}`).catch(() => {});
+	if (!keep) await deleteWorkflow(wf.id);
 	const data = typeof e?.data === 'string' ? unflat(e.data) : e?.data;
 	const runData = data?.resultData?.runData ?? {};
 	const results = {};
@@ -111,6 +114,12 @@ export async function runWorkflow(name, nodes, connections, { keep = false } = {
 		};
 	}
 	return { status: e?.status, workflowId: wf.id, results, error: data?.resultData?.error?.message };
+}
+
+/** n8n 2.x deletes only archived workflows. */
+export async function deleteWorkflow(id) {
+	await api('POST', `/rest/workflows/${id}/archive`, {});
+	await api('DELETE', `/rest/workflows/${id}`);
 }
 
 export function maxNode(name, parameters, cred, extra = {}) {

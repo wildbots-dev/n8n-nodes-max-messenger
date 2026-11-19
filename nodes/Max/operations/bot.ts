@@ -1,14 +1,17 @@
 import type { IDataObject } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 import { maxApiRequest } from '../lib/api';
-import { requireText } from '../lib/compose';
+import { pick, requireText } from '../lib/compose';
 import type { OperationHandler } from './types';
 
 const MAX_COMMANDS = 32;
 
+const BOT_FIELDS = ['user_id', 'first_name', 'last_name', 'username', 'is_bot', 'description', 'commands'];
+
 export const getInfo: OperationHandler = async (ctx, i) => {
 	const me = await maxApiRequest(ctx, { method: 'GET', path: '/me' });
-	return [{ json: me, pairedItem: { item: i } }];
+	const json = ctx.getNodeParameter('simplify', i, true) ? pick(me, BOT_FIELDS) : me;
+	return [{ json, pairedItem: { item: i } }];
 };
 
 export const setCommands: OperationHandler = async (ctx, i) => {
@@ -22,7 +25,7 @@ export const setCommands: OperationHandler = async (ctx, i) => {
 		});
 	}
 	const commands = inputs.map((input) => {
-		const name = requireText(ctx, input.name, 'Command name', i).replace(/^\//, '');
+		const name = requireText(ctx, String(input.name ?? '').trim().replace(/^\//, ''), 'Command name', i);
 		if (name.length > 64) {
 			throw new NodeOperationError(ctx.getNode(), `Command "${name}" is longer than 64 characters`, {
 				itemIndex: i,
@@ -46,13 +49,4 @@ export const setCommands: OperationHandler = async (ctx, i) => {
 		body: { commands },
 	});
 	return [{ json: response, pairedItem: { item: i } }];
-};
-
-export const getVideo: OperationHandler = async (ctx, i) => {
-	const token = requireText(ctx, ctx.getNodeParameter('videoId', i), 'Video token', i);
-	const video = await maxApiRequest(ctx, {
-		method: 'GET',
-		path: `/videos/${encodeURIComponent(token)}`,
-	});
-	return [{ json: video, pairedItem: { item: i } }];
 };

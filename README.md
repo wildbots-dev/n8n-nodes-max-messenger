@@ -55,7 +55,7 @@ The credential test calls `GET /me`, so a wrong token is reported right away.
 | Message | Edit | Change the text, or replace or remove the attachments and keyboard. |
 | Message | Delete | Delete a message. |
 | Message | Get | Get a message by ID. |
-| Message | Get Many | Recent messages of a chat, optionally only older or newer than a date. |
+| Message | Get Many | Messages of a chat, newest first, optionally only older or newer than a date. Return All pages through the whole history. |
 | Message | Answer Callback | Answer a button press with a notification and/or an updated message. |
 | Chat | Get | Chat, channel or dialog details. |
 | Chat | Update | Change the title or description. |
@@ -72,9 +72,9 @@ Pinning, members, administrators and updating a chat work in group chats and cha
 
 ### Attachments
 
-Every message can carry up to 12 attachments:
+Every message can carry up to 12 attachments; the inline keyboard counts as one of them:
 
-- **Binary File**: a file from a binary field of the input item, for example from *HTTP Request* or *Read/Write Files from Disk*. The node uploads it to MAX and picks image, video, audio or file from the MIME type (you can override it). Large videos are processed by MAX for a few seconds; the node waits and retries automatically.
+- **Binary File**: a file from a binary field of the input item, for example from *HTTP Request* or *Read/Write Files from Disk*. The node uploads it to MAX and picks the type from the MIME type (you can override it): JPG, PNG, GIF, TIFF, BMP and HEIC go as images, MP4, MOV, MKV and WEBM as videos, audio as audio, everything else (WebP, SVG, PDF, archives…) as a file. MAX processes videos for a few seconds after upload; the node waits and retries automatically.
 - **Image URL**: a public link to a JPG, PNG, GIF, TIFF, BMP or HEIC picture.
 - **Token**: an attachment that is already in MAX, for example `payload.token` of a picture someone sent to the bot. This forwards media without downloading it.
 - **Sticker**: a sticker code (`payload.code` of a received sticker).
@@ -97,6 +97,7 @@ Connect **MAX** to the *Tools* input of an AI Agent and let the model fill field
 Choose the updates the workflow should react to (message received, button pressed, bot started, bot added to chat, message edited and so on) and activate the workflow. The trigger:
 
 - registers its own webhook in MAX with a random secret and checks the `X-Max-Bot-Api-Secret` header of every request (requests without it get HTTP 403);
+- needs n8n to answer MAX: if the webhook gets no successful answer for 8 hours (n8n down, certificate expired), MAX removes the subscription. Deactivate and activate the workflow afterwards to register it again;
 - removes only its own webhook when the workflow is deactivated, so other integrations of the same bot (CRM, other workflows) keep working;
 - re-registers the webhook when you change the list of updates.
 
@@ -122,7 +123,7 @@ The output is the update object from MAX. Useful fields:
 
 - Text: up to 4000 characters per message (longer text is split by the node).
 - About 2 messages per second per chat and 30 requests per second per bot; the node retries on HTTP 429.
-- Files: images up to 50 MB, video up to 250 MB, audio up to 256 MB, other files up to 4 GB; file names up to 200 characters.
+- Files: MAX accepts images up to 50 MB, video up to 250 MB, audio up to 256 MB and other files up to 4 GB; file names up to 200 characters. The node holds the file in memory while uploading (about twice its size), so the practical limit depends on the memory of your n8n host.
 - MAX no longer lists the chats of a bot. Save `chat_id` from *Bot Added to Chat* and *Bot Started* updates if you need it later.
 
 ## Resources

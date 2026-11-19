@@ -32,8 +32,18 @@ describe('toApiError', () => {
 	it('uses the MAX message and code', () => {
 		const error = toApiError(node, 400, { code: 'proto.payload', message: 'errors.required' });
 		expect(error.message).toBe('errors.required');
-		expect(error.description).toBe('Error code: proto.payload');
+		expect(error.description).toBe('MAX code: proto.payload');
 		expect(error.httpCode).toBe('400');
+	});
+
+	it('does not report HTTP 200 as the HTTP code of a success:false answer', () => {
+		expect(toApiError(node, 200, { success: false, code: 'chat.denied', message: 'denied' }).httpCode).toBeFalsy();
+	});
+
+	it('replaces the raw text of attachment.not.ready', () => {
+		const error = toApiError(node, 400, { code: 'attachment.not.ready', message: 'Key: errors.process.attachment.file.not.processed' });
+		expect(error.message).toMatch(/still processing/);
+		expect(error.description).toContain('errors.process.attachment.file.not.processed');
 	});
 
 	it('explains a 401 without a body', () => {
@@ -60,6 +70,7 @@ describe('helpers', () => {
 		expect(isTlsTrustError({ cause: { code: 'SELF_SIGNED_CERT_IN_CHAIN' } })).toBe(true);
 		expect(isTlsTrustError(new Error('unable to get local issuer certificate'))).toBe(true);
 		expect(isTlsTrustError(new Error('socket hang up'))).toBe(false);
+		expect(isTlsTrustError(new Error('certificate has expired'))).toBe(false);
 	});
 
 	it('copies a TLS error into a plain object', () => {

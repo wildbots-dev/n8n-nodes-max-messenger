@@ -33,6 +33,13 @@ describe('splitText', () => {
 		expect(chunks[1].startsWith('😀')).toBe(true);
 	});
 
+	it('does not cut inside an HTML tag', () => {
+		const text = `${'aaaa '.repeat(5)}<a href="x">link</a> tail`;
+		const chunks = splitText(text, 30);
+		expect(chunks.every((chunk) => chunk.lastIndexOf('<') <= chunk.lastIndexOf('>'))).toBe(true);
+		expect(chunks.some((chunk) => chunk.startsWith('<a href'))).toBe(true);
+	});
+
 	it('loses no characters other than whitespace at the cuts', () => {
 		const text = Array.from({ length: 300 }, (_, i) => `word${i}`).join(' ');
 		expect(splitText(text, 100).join(' ')).toBe(text);

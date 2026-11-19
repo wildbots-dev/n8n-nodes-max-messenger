@@ -1,12 +1,13 @@
 // AI Agent uses the MAX node as a tool (MAX Tool): reads bot info, then sends a message composed by the model.
-// Env: CHAT_ID, LLM_KEY_FILE (OpenAI-compatible key), LLM_URL, LLM_MODEL.
+// Env: CHAT_ID, LLM_KEY_FILE (API key of an OpenAI-compatible endpoint), LLM_URL, LLM_MODEL.
 import { readFileSync } from 'node:fs';
 import { api, botToken, ensureCredential, login, runWorkflow } from './lib.mjs';
 
 const CHAT_ID = process.env.CHAT_ID;
 await login();
 const cred = await ensureCredential('MAX api2 strict', { accessToken: botToken(), baseUrl: 'https://platform-api2.max.ru', ignoreSslIssues: false });
-const llmData = { apiKey: readFileSync(process.env.LLM_KEY_FILE, 'utf8').trim(), url: process.env.LLM_URL ?? 'https://api.hubris.pw/v1' };
+const llmData = { apiKey: readFileSync(process.env.LLM_KEY_FILE, 'utf8').trim(), url: process.env.LLM_URL };
+if (!process.env.LLM_URL || !process.env.LLM_MODEL) throw new Error('Set LLM_URL and LLM_MODEL (OpenAI-compatible endpoint and model ID)');
 const list = (await api('GET', '/rest/credentials')).json.data;
 let llm = list.find((c) => c.name === 'LLM for e2e');
 if (!llm) llm = (await api('POST', '/rest/credentials', { name: 'LLM for e2e', type: 'openAiApi', data: llmData })).json.data;
@@ -14,7 +15,7 @@ const marker = `agent-${Date.now()}`;
 const nodes = [
 	{ parameters: {}, name: 'Start', type: 'n8n-nodes-base.manualTrigger', typeVersion: 1, position: [0, 0] },
 	{ parameters: { promptType: 'define', text: `First call the bot info tool to learn the bot's first name. Then send one message to the chat with the text: "${marker}: hello from an AI agent, I am <first name>". Reply with the word done.`, options: {} }, name: 'Agent', type: '@n8n/n8n-nodes-langchain.agent', typeVersion: 3.1, position: [300, 0] },
-	{ parameters: { model: { __rl: true, mode: 'id', value: process.env.LLM_MODEL ?? 'openai/gpt-4.1-mini' }, options: {} }, name: 'Model', type: '@n8n/n8n-nodes-langchain.lmChatOpenAi', typeVersion: 1.3, position: [300, 200], credentials: { openAiApi: { id: llm.id, name: llm.name } } },
+	{ parameters: { model: { __rl: true, mode: 'id', value: process.env.LLM_MODEL }, options: {} }, name: 'Model', type: '@n8n/n8n-nodes-langchain.lmChatOpenAi', typeVersion: 1.3, position: [300, 200], credentials: { openAiApi: { id: llm.id, name: llm.name } } },
 	{ parameters: { resource: 'bot', operation: 'getInfo' }, name: 'Get bot info', type: 'n8n-nodes-max-messenger.maxTool', typeVersion: 1, position: [500, 200], credentials: { maxBotApi: cred } },
 	{ parameters: { resource: 'message', operation: 'send', sendTo: 'chat', chatId: CHAT_ID, text: "={{ $fromAI('text', 'Text of the message to send', 'string') }}", format: 'plain', keyboard: 'none' }, name: 'Send MAX message', type: 'n8n-nodes-max-messenger.maxTool', typeVersion: 1, position: [700, 200], credentials: { maxBotApi: cred } },
 ];

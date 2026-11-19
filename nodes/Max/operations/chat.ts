@@ -1,7 +1,7 @@
 import type { IDataObject, INodeExecutionData } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 import { compact, maxApiRequest } from '../lib/api';
-import { parseId, requireText } from '../lib/compose';
+import { parseId, pick, requireText } from '../lib/compose';
 import type { OperationHandler } from './types';
 
 const PAGE_SIZE = 100;
@@ -30,12 +30,6 @@ const MEMBER_FIELDS = [
 	'permissions',
 	'alias',
 ];
-
-function pick(obj: IDataObject, fields: string[]): IDataObject {
-	const out: IDataObject = {};
-	for (const field of fields) if (obj[field] !== undefined) out[field] = obj[field];
-	return out;
-}
 
 function simplified(ctx: Parameters<OperationHandler>[0], i: number, list: IDataObject[], fields: string[]) {
 	return ctx.getNodeParameter('simplify', i, true) ? list.map((obj) => pick(obj, fields)) : list;
@@ -113,7 +107,7 @@ export const getPinned: OperationHandler = async (ctx, i) => {
 export const getMembers: OperationHandler = async (ctx, i) => {
 	const { path } = chatPath(ctx, i, '/members');
 	const returnAll = ctx.getNodeParameter('returnAll', i, false) as boolean;
-	const limit = returnAll ? Infinity : (ctx.getNodeParameter('limit', i, 50) as number);
+	const limit = returnAll ? Infinity : Math.max(1, Math.floor(ctx.getNodeParameter('limit', i, 50) as number));
 	const filters = ctx.getNodeParameter('filters', i, {}) as { userIds?: string };
 	const userIds = (filters.userIds ?? '')
 		.split(',')
@@ -154,7 +148,8 @@ export const getAdmins: OperationHandler = async (ctx, i) => {
 
 export const getMembership: OperationHandler = async (ctx, i) => {
 	const { path } = chatPath(ctx, i, '/members/me');
-	return out(await maxApiRequest(ctx, { method: 'GET', path }), i);
+	const member = await maxApiRequest(ctx, { method: 'GET', path });
+	return out(simplified(ctx, i, [member], MEMBER_FIELDS)[0], i);
 };
 
 export const removeMember: OperationHandler = async (ctx, i) => {
