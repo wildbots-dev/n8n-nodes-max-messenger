@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- No functional changes. Re-published for the n8n verification pre-check after npm's staging placeholder version (0.0.0-stage) was removed from the registry.
+
 ## 0.1.2
 
 - Docs: which bot permissions each group operation needs.
