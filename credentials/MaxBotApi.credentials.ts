@@ -13,7 +13,7 @@ export class MaxBotApi implements ICredentialType {
 
 	icon: Icon = { light: 'file:../icons/max.svg', dark: 'file:../icons/max.svg' };
 
-	documentationUrl = 'https://github.com/Aimagine-life/n8n-nodes-max-messenger#credentials';
+	documentationUrl = 'https://github.com/wildbots-dev/n8n-nodes-max-messenger#credentials';
 
 	properties: INodeProperties[] = [
 		{

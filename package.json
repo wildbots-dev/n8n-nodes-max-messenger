@@ -6,7 +6,7 @@
 	},
 	"description": "n8n nodes for the MAX messenger Bot API: send messages with buttons and files, manage chats, and trigger workflows on bot updates",
 	"license": "MIT",
-	"homepage": "https://github.com/Aimagine-life/n8n-nodes-max-messenger#readme",
+	"homepage": "https://github.com/wildbots-dev/n8n-nodes-max-messenger#readme",
 	"keywords": [
 		"n8n-community-node-package",
 		"n8n",
@@ -23,7 +23,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Aimagine-life/n8n-nodes-max-messenger.git"
+		"url": "https://github.com/wildbots-dev/n8n-nodes-max-messenger.git"
 	},
 	"engines": {
 		"node": ">=22"

@@ -5,10 +5,10 @@
 	"categories": ["Communication"],
 	"resources": {
 		"credentialDocumentation": [
-			{ "url": "https://github.com/Aimagine-life/n8n-nodes-max-messenger#credentials" }
+			{ "url": "https://github.com/wildbots-dev/n8n-nodes-max-messenger#credentials" }
 		],
 		"primaryDocumentation": [
-			{ "url": "https://github.com/Aimagine-life/n8n-nodes-max-messenger#max-trigger" }
+			{ "url": "https://github.com/wildbots-dev/n8n-nodes-max-messenger#max-trigger" }
 		]
 	}
 }
