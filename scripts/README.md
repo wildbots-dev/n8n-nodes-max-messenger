@@ -7,10 +7,12 @@ export N8N_URL=https://n8n.example.com   # public HTTPS address; MAX calls webho
 export N8N_E2E_EMAIL=owner@example.com     # owner of that n8n; created on the first run of a fresh instance
 export N8N_E2E_PASSWORD='a strong password'
 export MAX_TOKEN_FILE=/path/to/bot-token.txt
+export DOMAIN=auto                            # optional: auto (default), https://platform-api2.max.ru or https://platform-api.max.ru
 
 node scripts/e2e-smoke.mjs                                          # nodes registered, credential test, Bot → Get Info
 CHAT_ID=... USER_ID=... [GROUP_ID=...] node scripts/e2e-ops.mjs     # every operation of the MAX node
-node scripts/e2e-trigger.mjs                                        # webhook lifecycle of the "MAX trigger e2e" workflow
+node scripts/e2e-trigger.mjs                                        # webhook lifecycle; creates the "MAX trigger e2e" workflow if missing
+node scripts/e2e-test-webhook.mjs                                   # "Listen for test event": test webhook registered and removed
 node scripts/e2e-demo-bot.mjs                                       # turns that workflow into an echo bot with buttons
 CHAT_ID=... USER_ID=... BOT_USER_ID=... REPLY_MID=... node scripts/e2e-simulate.mjs # signed and unsigned webhook calls
 CHAT_ID=... LLM_KEY_FILE=... LLM_URL=... LLM_MODEL=... node scripts/e2e-agent.mjs  # AI Agent that uses MAX as a tool
