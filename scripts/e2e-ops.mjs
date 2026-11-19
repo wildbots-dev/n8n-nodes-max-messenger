@@ -209,8 +209,15 @@ await check('chat get', [maxNode('MAX', { resource: 'chat', operation: 'get', ch
 await check('chat send action', [maxNode('MAX', { resource: 'chat', operation: 'sendAction', chatId: CHAT_ID, action: 'typing_on' }, cred)], (r) => isOk(r) && firstJson(r).success === true || JSON.stringify(firstJson(r)));
 await check('group-only method in a dialog → API error', [maxNode('MAX', { resource: 'chat', operation: 'getAdmins', chatId: CHAT_ID }, cred)], failsWith(/not available for dialogs/));
 if (GROUP_ID) {
+res = await check('group: chat get (simplified)', [maxNode('MAX', { resource: 'chat', operation: 'get', chatId: GROUP_ID }, cred)], (r) => isOk(r) && firstJson(r).type === 'chat' && firstJson(r).participants === undefined || JSON.stringify(firstJson(r)).slice(0, 200));
+const original = { title: firstJson(res).title, description: firstJson(res).description ?? '' };
 res = await check('group: send', [maxNode('MAX', send({ chatId: GROUP_ID, text: 'e2e: hello group' }), cred)], (r) => isOk(r) && !!mid(r));
 state.groupMid = mid(res);
+await check('group: send with buttons and image', [readFile('Read', 'test-image.png'), maxNode('MAX', send({ chatId: GROUP_ID, text: 'e2e: group image', attachments: { attachment: [{ source: 'binary', binaryPropertyName: 'data' }] }, keyboard: 'buttons', buttons: { button: [{ row: 1, type: 'callback', text: 'OK', payload: 'ok' }] } }), cred)], (r) => isOk(r) && atts(r) === 'image,inline_keyboard' || atts(r));
+await check('group: send action', [maxNode('MAX', { resource: 'chat', operation: 'sendAction', chatId: GROUP_ID, action: 'sending_photo' }, cred)], (r) => isOk(r) && firstJson(r).success === true || JSON.stringify(r?.error ?? firstJson(r)));
+await check('group: edit message', [maxNode('MAX', { resource: 'message', operation: 'edit', messageId: state.groupMid, text: 'e2e: hello group (edited)', attachmentsMode: 'keep' }, cred)], (r) => isOk(r) && firstJson(r).success === true || JSON.stringify(r?.error ?? firstJson(r)));
+await check('group: bot membership (raw)', [maxNode('MAX', { resource: 'chat', operation: 'getMembership', chatId: GROUP_ID, simplify: false }, cred)], (r) => isOk(r) && firstJson(r).is_admin === true && Array.isArray(firstJson(r).permissions) || JSON.stringify(r?.error ?? firstJson(r)).slice(0, 200));
+await check('group: remove unknown member → API error', [maxNode('MAX', { resource: 'chat', operation: 'removeMember', chatId: GROUP_ID, userId: '1', block: false }, cred)], (r) => !!r?.error);
 await check('chat bot membership', [maxNode('MAX', { resource: 'chat', operation: 'getMembership', chatId: GROUP_ID }, cred)], (r) => isOk(r) || JSON.stringify(r?.error));
 await check('chat pin', [maxNode('MAX', { resource: 'chat', operation: 'pin', chatId: GROUP_ID, messageId: state.groupMid, notify: false }, cred)], (r) => isOk(r) && firstJson(r).success === true || JSON.stringify(r?.error ?? firstJson(r)));
 await check('chat get pinned', [maxNode('MAX', { resource: 'chat', operation: 'getPinned', chatId: GROUP_ID }, cred)], (r) => isOk(r) && firstJson(r).message?.body?.mid === state.groupMid || JSON.stringify(r?.error ?? firstJson(r)).slice(0, 200));
@@ -223,6 +230,8 @@ await check('group: update title', [maxNode('MAX', { resource: 'chat', operation
 await check('group: update description', [maxNode('MAX', { resource: 'chat', operation: 'update', chatId: GROUP_ID, updateFields: { description: 'Chat for testing the n8n MAX node' } }, cred)], (r) => isOk(r) && firstJson(r).description === 'Chat for testing the n8n MAX node' || JSON.stringify(r?.error ?? firstJson(r)).slice(0, 200));
 await check('group: update nothing → validation', [maxNode('MAX', { resource: 'chat', operation: 'update', chatId: GROUP_ID, updateFields: {} }, cred)], failsWith(/Add a title/));
 await check('group: get many', [maxNode('MAX', { resource: 'message', operation: 'getAll', chatId: GROUP_ID, limit: 10 }, cred)], (r) => isOk(r) && r.items.length > 0 || JSON.stringify(r?.error));
+await check('group: delete own message', [maxNode('MAX', { resource: 'message', operation: 'delete', messageId: state.groupMid }, cred)], (r) => isOk(r) && firstJson(r).success === true || JSON.stringify(r?.error ?? firstJson(r)));
+await check('group: restore title and description', [maxNode('MAX', { resource: 'chat', operation: 'update', chatId: GROUP_ID, updateFields: { title: original.title, description: original.description, notify: false } }, cred)], (r) => isOk(r) && firstJson(r).title === original.title || JSON.stringify(r?.error ?? firstJson(r)).slice(0, 200));
 }
 
 // ---------- Bot ----------

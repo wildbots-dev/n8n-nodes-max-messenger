@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Docs: which bot permissions each group operation needs.
+- Published through npm Trusted Publishing (OIDC) instead of a token.
+
 ## 0.1.1
 
 - Credential: new default API domain **Automatic**. It uses `platform-api2.max.ru` and switches to `platform-api.max.ru` when the n8n host does not trust the Russian Trusted Root CA, so the credential works on any host without turning off certificate checks. Existing credentials keep their domain.

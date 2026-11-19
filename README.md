@@ -70,6 +70,20 @@ The credential test calls `GET /me`, so a wrong token is reported right away. Wi
 
 Pinning, members, administrators and updating a chat work in group chats and channels only; MAX does not offer them for one-to-one dialogs.
 
+### Bot permissions in group chats
+
+Make the bot an administrator of the group and turn on the permissions the operations need. Without them MAX answers *"Insufficient permissions in chat"*.
+
+| Permission in MAX | Needed for |
+| --- | --- |
+| Read messages | receiving messages in the MAX Trigger, Get Many, Get Pinned Message, Get Members, Get Administrators |
+| Pin messages | Pin Message, Unpin Message |
+| Edit chat | Update (title, description) |
+| Delete messages | deleting messages of other members |
+| Add and remove members | Remove Member |
+
+Sending, editing and deleting the bot's own messages, Send Action and Get Bot Membership work without extra permissions.
+
 ### Attachments
 
 Every message can carry up to 12 attachments; the inline keyboard counts as one of them:
